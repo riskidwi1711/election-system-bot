@@ -1,8 +1,11 @@
+require('dotenv').config()
 const { default: axios } = require("axios");
 const TelegramBot = require("node-telegram-bot-api");
 const token = "6430901259:AAFaPSZbodWVPBoubOG5-VwuuNBtgOA8jDo";
 const bot = new TelegramBot(token, { polling: true });
-const api_url = "http://127.0.0.1:3200/api/v1/telegram/";
+const api_url = process.env.API_URL;
+
+console.log(api_url)
 let globalChatId = null;
 
 const confirms = [
