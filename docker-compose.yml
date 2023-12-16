@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  node-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bot
+    container_name: voting-app-bot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - node-net
+
+networks:
+  node-net:
+    driver: bridge
