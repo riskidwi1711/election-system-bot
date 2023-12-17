@@ -55,7 +55,6 @@ function uploadFoto(fileId, callback) {
       axios
         .post(api_url + 'upload_foto', formDatas)
         .then((res) => {
-          console.log(res)
           if (res.data.response_code == "00") return callback(null, res);
           if (res.data.response_code != "00")
             errorMessage();
