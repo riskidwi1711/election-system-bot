@@ -46,6 +46,43 @@ function processInput(input, onError, onSuccess) {
   }
 }
 
+function uploadFoto(fileId, callback) {
+  bot.getFileLink(fileId).then((link) => {
+    const formDatas = new FormData();
+    formDatas.append("url", link);
+    console.log(link)
+    try {
+      axios
+        .post(api_url + 'upload_foto', formDatas)
+        .then((res) => {
+          console.log(res)
+          if (res.data.response_code == "00") return callback(null, res);
+          if (res.data.response_code != "00")
+            errorMessage();
+            return callback(res.data.response_msg, null);
+        })
+        .catch((err) => {
+          errorMessage();
+          return callback(err);
+        });
+    } catch (error) {
+      errorMessage();
+      return callback(err);
+    }
+  });
+}
+
+function validatPhoto(msg, onError, onSuccess) {
+  if (msg.photo) {
+    const photo = msg.photo[msg.photo.length - 1];
+    userState.foto_c1 = photo;
+    onSuccess();
+  } else {
+    onError();
+    bot.sendMessage(globalChatId, "Mohon kirim foto");
+  }
+}
+
 function errorMessage(error = "Sistem dalam gangguan silahkan coba kembali") {
   console.log(`Error: ${error}`);
   bot.sendMessage(globalChatId, error);
@@ -186,20 +223,35 @@ async function botWork(msg) {
         },
         () => {
           userState.suara_sisa = msg.text;
-          // Menampilkan rekapitulasi suara
-          const rekapitulasi = `Hasil input\n\nSuara Anies-Muhaimin: ${userState.suara_calon_1}\nSuara Ganjar-Mahfud: ${userState.suara_calon_2}\nSuara Prabowo-Gibran: ${userState.suara_calon_3}\nSuara tidak sah: ${userState.suara_tidak_sah}\nSuara sisa: ${userState.suara_sisa}\n
-        `;
-          bot.sendMessage(
-            chatId,
-            `Apakah yang diinputkan sudah benar?\n\n${rekapitulasi}`,
-            confirmKeyboard
-          );
-          botState.step = 6;
+          bot.sendMessage(chatId, "Kirim Foto C1:");
+          botState.step = 6.1;
+        }
+      );
+      break;
+    case 6.1:
+      validatPhoto(
+        msg,
+        () => {
+          bot.sendMessage(chatId, "Kirim Foto C1:");
+        },
+        () => {
+          const photoId = msg.photo[msg.photo.length - 1].file_id;
+          const rekapitulasi = `Hasil input\n\nSuara Anies-Muhaimin: ${userState.suara_calon_1}\nSuara Ganjar-Mahfud: ${userState.suara_calon_2}\nSuara Prabowo-Gibran: ${userState.suara_calon_3}\nSuara tidak sah: ${userState.suara_tidak_sah}\nSuara sisa: ${userState.suara_sisa}\n`;
+          bot
+            .sendPhoto(chatId, photoId, { caption: "Foto C1 yang di kirim:" })
+            .then(() => {
+              bot.sendMessage(
+                chatId,
+                `Apakah yang diinputkan sudah benar?\n\n${rekapitulasi}`,
+                confirmKeyboard
+              );
+            });
+          botState.step = 7;
         }
       );
       break;
     case 6:
-      // Menampilkan rekapitulasi suara
+      bot.sendPhoto(chatId, userState.foto_c1.file_id);
       const rekapitulasi = `Hasil input\n\nSuara Anies-Muhaimin: ${userState.suara_calon_1}\nSuara Ganjar-Mahfud: ${userState.suara_calon_2}\nSuara Prabowo-Gibran: ${userState.suara_calon_3}\nSuara tidak sah: ${userState.suara_tidak_sah}\nSuara sisa: ${userState.suara_sisa}\n
         `;
       bot.sendMessage(
@@ -246,19 +298,25 @@ bot.on("message", async (msg) => {
   }
 });
 
-bot.on("callback_query", async (callbackQuery) => {
+bot.on("callback_query", (callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
   const data = callbackQuery.data;
 
   switch (data) {
     case "benar":
       bot.sendMessage(chatId, "Terima kasih atas konfirmasinya!");
-      konfirm_suara = await apiCall("konfirmasi_suara", "post", userState);
-      if (konfirm_suara) {
-        resetUserState();
-        botState.step = null;
-        botState.start_input = false;
-      }
+      uploadFoto(userState.foto_c1.file_id, async (err, res) => {
+        if (err) errorMessage(err);
+        let data = userState;
+        data.foto = res.data.message;
+        konfirm_suara = await apiCall("konfirmasi_suara", "post", userState);
+        if (konfirm_suara) {
+          resetUserState();
+          botState.step = null;
+          botState.start_input = false;
+        }
+      });
+
       break;
     case "ulangi":
       bot.sendMessage(chatId, "Silahkan ulangi proses input suara.");
